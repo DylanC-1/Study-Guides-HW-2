@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS 4070 — Data Normalization & Binning</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #141720;
+    --card: #1a1e2e;
+    --border: #252a3d;
+    --accent: #5b8af5;
+    --accent2: #f5a55b;
+    --accent3: #5bf5b8;
+    --text: #e8eaf2;
+    --muted: #7a80a0;
+    --correct: #3dd68c;
+    --wrong: #f55b7a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    padding: 0 0 60px;
+  }
+
+  header {
+    background: linear-gradient(135deg, #0d0f14 0%, #141728 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 28px 40px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    background: rgba(91,138,245,0.1);
+    padding: 6px 12px;
+    border: 1px solid rgba(91,138,245,0.3);
+    border-radius: 4px;
+  }
+
+  header h1 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  header span {
+    font-size: 14px;
+    color: var(--muted);
+    margin-left: 8px;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    overflow-x: auto;
+  }
+
+  .tab {
+    padding: 16px 24px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+    font-family: 'DM Sans', sans-serif;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    letter-spacing: 0.3px;
+  }
+
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .content { padding: 40px; max-width: 900px; margin: 0 auto; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .concept-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .concept-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .accent-blue::before { background: linear-gradient(90deg, var(--accent), transparent); }
+  .accent-orange::before { background: linear-gradient(90deg, var(--accent2), transparent); }
+  .accent-green::before { background: linear-gradient(90deg, var(--accent3), transparent); }
+
+  .concept-card h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+  }
+
+  .tag-blue { background: rgba(91,138,245,0.15); color: var(--accent); border: 1px solid rgba(91,138,245,0.3); }
+  .tag-orange { background: rgba(245,165,91,0.15); color: var(--accent2); border: 1px solid rgba(245,165,91,0.3); }
+  .tag-green { background: rgba(91,245,184,0.15); color: var(--accent3); border: 1px solid rgba(91,245,184,0.3); }
+
+  .concept-card p {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.7;
+    margin-bottom: 16px;
+  }
+
+  .formula-box {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    color: var(--accent);
+    margin: 16px 0;
+    line-height: 1.8;
+  }
+
+  .formula-box .label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .steps-list {
+    list-style: none;
+    counter-reset: steps;
+  }
+
+  .steps-list li {
+    counter-increment: steps;
+    display: flex;
+    gap: 16px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+
+  .steps-list li::before {
+    content: counter(steps);
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    background: var(--accent);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    margin-top: 1px;
+  }
+
+  .worked-solution {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 16px 0;
+  }
+
+  .ws-header {
+    padding: 12px 20px;
+    background: rgba(91,138,245,0.08);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+
+  .ws-body {
+    padding: 20px;
+  }
+
+  .ws-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+
+  .ws-row:last-child { border-bottom: none; }
+
+  .ws-label {
+    min-width: 120px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    padding-top: 2px;
+  }
+
+  .ws-val {
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+  }
+
+  .ws-val .highlight { color: var(--accent2); }
+  .ws-val .result { color: var(--accent3); font-weight: 700; }
+
+  .data-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0;
+  }
+
+  .chip {
+    background: rgba(91,138,245,0.1);
+    border: 1px solid rgba(91,138,245,0.25);
+    color: var(--accent);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+  }
+
+  /* Interactive Quiz */
+  .quiz-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+
+  .quiz-card h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+
+  .quiz-card .q-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+
+  .input-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+
+  .input-row label {
+    font-size: 13px;
+    color: var(--muted);
+    min-width: 180px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+  }
+
+  input[type="number"], input[type="text"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 8px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    width: 120px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus { border-color: var(--accent); }
+
+  .btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+
+  .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+
+  .feedback {
+    margin-top: 14px;
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    line-height: 1.7;
+    display: none;
+  }
+
+  .feedback.correct {
+    background: rgba(61,214,140,0.1);
+    border: 1px solid rgba(61,214,140,0.3);
+    color: var(--correct);
+    display: block;
+  }
+
+  .feedback.wrong {
+    background: rgba(245,91,122,0.1);
+    border: 1px solid rgba(245,91,122,0.3);
+    color: var(--wrong);
+    display: block;
+  }
+
+  .feedback.info {
+    background: rgba(91,138,245,0.08);
+    border: 1px solid rgba(91,138,245,0.2);
+    color: var(--text);
+    display: block;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 16px 0;
+  }
+
+  th {
+    background: rgba(91,138,245,0.1);
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 10px 14px;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+
+  td {
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+  }
+
+  tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  td.result-cell { color: var(--accent3); font-weight: 700; }
+
+  .bin-visual {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+  }
+
+  .bin-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    min-width: 140px;
+  }
+
+  .bin-box .bin-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  .bin-box .bin-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .bin-item {
+    background: rgba(245,165,91,0.1);
+    border: 1px solid rgba(245,165,91,0.2);
+    color: var(--accent2);
+    padding: 3px 9px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+  }
+
+  .bin-item.smoothed {
+    background: rgba(91,245,184,0.1);
+    border-color: rgba(91,245,184,0.2);
+    color: var(--accent3);
+  }
+
+  .toggle-solution {
+    background: none;
+    border: 1px dashed var(--border);
+    color: var(--muted);
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    margin-top: 14px;
+    transition: all 0.2s;
+    width: 100%;
+    text-align: center;
+  }
+
+  .toggle-solution:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .solution-reveal {
+    display: none;
+    margin-top: 16px;
+  }
+
+  .section-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .section-sub {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 32px;
+    line-height: 1.6;
+  }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+  .progress-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-bottom: 28px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+
+  .callout {
+    background: rgba(91,138,245,0.06);
+    border-left: 3px solid var(--accent);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    font-size: 13.5px;
+    color: var(--text);
+    margin: 14px 0;
+    line-height: 1.7;
+  }
+
+  .callout strong { color: var(--accent); }
+
+  .warn {
+    background: rgba(245,165,91,0.06);
+    border-left: 3px solid var(--accent2);
+    color: var(--text);
+  }
+
+  .warn strong { color: var(--accent2); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">CS 4070</div>
+  <div>
+    <h1>Data Preprocessing Study Tool <span>HW #2</span></h1>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('overview')">📖 Overview</button>
+  <button class="tab" onclick="switchTab('minmax')">Q1a · Min-Max</button>
+  <button class="tab" onclick="switchTab('zscore')">Q1b · Z-Score</button>
+  <button class="tab" onclick="switchTab('decimal')">Q1c · Decimal</button>
+  <button class="tab" onclick="switchTab('binning')">Q2 · Binning</button>
+  <button class="tab" onclick="switchTab('practice')">🎯 Practice</button>
+</div>
+
+<!-- OVERVIEW -->
+<div class="content">
+<div id="overview" class="section active">
+  <div class="section-title">Data Normalization & Binning</div>
+  <p class="section-sub">This tool walks you through every method needed for HW #2. Use the tabs above to study each technique, see the worked solutions, then test yourself in Practice mode.</p>
+
+  <div class="two-col">
+    <div class="concept-card accent-blue">
+      <h2><span style="font-size:22px">📐</span> Question 1 — Normalization</h2>
+      <p>Transforming data into a consistent scale so different attributes are comparable. Three methods:</p>
+      <ul style="list-style:none;padding:0;">
+        <li style="padding:6px 0;font-size:14px;color:var(--muted)">→ <span style="color:var(--accent)">Min-Max</span>: Scale to [0, 1]</li>
+        <li style="padding:6px 0;font-size:14px;color:var(--muted)">→ <span style="color:var(--accent)">Z-Score</span>: Center around mean</li>
+        <li style="padding:6px 0;font-size:14px;color:var(--muted)">→ <span style="color:var(--accent)">Decimal Scaling</span>: Shift decimal point</li>
+      </ul>
+      <div class="data-chips">
+        <div class="chip">200</div><div class="chip">300</div><div class="chip">400</div><div class="chip">600</div><div class="chip">1000</div>
+      </div>
+    </div>
+    <div class="concept-card accent-orange">
+      <h2><span style="font-size:22px">🗂️</span> Question 2 — Binning</h2>
+      <p>Smoothing noisy data by grouping values into "bins". Two methods:</p>
+      <ul style="list-style:none;padding:0;">
+        <li style="padding:6px 0;font-size:14px;color:var(--muted)">→ <span style="color:var(--accent2)">Bin Means</span>: Replace with average</li>
+        <li style="padding:6px 0;font-size:14px;color:var(--muted)">→ <span style="color:var(--accent2)">Bin Boundaries</span>: Replace with nearest boundary</li>
+      </ul>
+      <p style="font-size:13px;margin-top:8px;"><strong style="color:var(--accent2)">Bin depth = 4</strong> → 4 values per bin</p>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <strong>⚠️ HW Tip:</strong> Show ALL calculation steps. Sort data before binning (Q2). Round bin means to whole numbers.
+  </div>
+</div>
+
+<!-- MIN-MAX -->
+<div id="minmax" class="section">
+  <div class="section-title">Min-Max Normalization</div>
+  <p class="section-sub">Scales all values proportionally into the range [new_min, new_max] — here [0, 1].</p>
+
+  <div class="concept-card accent-blue">
+    <h2>The Formula <span class="tag tag-blue">Q1a</span></h2>
+    <div class="formula-box">
+      <div class="label">Formula</div>
+      v' = (v − min_A) / (max_A − min_A) × (new_max − new_min) + new_min
+    </div>
+    <p>Since new_min = 0 and new_max = 1, the formula simplifies to:</p>
+    <div class="formula-box">
+      v' = (v − min_A) / (max_A − min_A)
+    </div>
+
+    <ol class="steps-list">
+      <li>Find <strong>min_A</strong> (smallest value) and <strong>max_A</strong> (largest value) in the dataset</li>
+      <li>Compute the <strong>range</strong>: max_A − min_A</li>
+      <li>For each value v, subtract min_A then divide by the range</li>
+    </ol>
+  </div>
+
+  <div class="concept-card accent-blue">
+    <h2>Worked Solution — Data: 200, 300, 400, 600, 1000</h2>
+    <div class="worked-solution">
+      <div class="ws-header">STEP-BY-STEP CALCULATION</div>
+      <div class="ws-body">
+        <div class="ws-row">
+          <span class="ws-label">min_A =</span>
+          <span class="ws-val"><span class="highlight">200</span></span>
+        </div>
+        <div class="ws-row">
+          <span class="ws-label">max_A =</span>
+          <span class="ws-val"><span class="highlight">1000</span></span>
+        </div>
+        <div class="ws-row">
+          <span class="ws-label">range =</span>
+          <span class="ws-val">1000 − 200 = <span class="highlight">800</span></span>
+        </div>
+      </div>
+    </div>
+
+    <table>
+      <thead><tr><th>v (original)</th><th>v − min_A</th><th>÷ range (800)</th><th>v' (normalized)</th></tr></thead>
+      <tbody>
+        <tr><td>200</td><td>200 − 200 = 0</td><td>0 / 800</td><td class="result-cell">0.000</td></tr>
+        <tr><td>300</td><td>300 − 200 = 100</td><td>100 / 800</td><td class="result-cell">0.125</td></tr>
+        <tr><td>400</td><td>400 − 200 = 200</td><td>200 / 800</td><td class="result-cell">0.250</td></tr>
+        <tr><td>600</td><td>600 − 200 = 400</td><td>400 / 800</td><td class="result-cell">0.500</td></tr>
+        <tr><td>1000</td><td>1000 − 200 = 800</td><td>800 / 800</td><td class="result-cell">1.000</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><strong>✓ Sanity check:</strong> The minimum always maps to 0 and the maximum always maps to 1. If that's not the case, recheck your calculation.</div>
+  </div>
+</div>
+
+<!-- Z-SCORE -->
+<div id="zscore" class="section">
+  <div class="section-title">Z-Score Normalization</div>
+  <p class="section-sub">Centers data around the mean with standard deviation as the unit. Tells you how many standard deviations each value is from the mean.</p>
+
+  <div class="concept-card accent-orange">
+    <h2>The Formula <span class="tag tag-orange">Q1b</span></h2>
+    <div class="formula-box">
+      <div class="label">Formula</div>
+      v' = (v − μ) / σ
+      <br><br>
+      where  μ = mean,  σ = standard deviation
+    </div>
+
+    <ol class="steps-list">
+      <li>Calculate the <strong>mean</strong> (μ): sum all values, divide by count (n)</li>
+      <li>For each value, find the <strong>squared deviation</strong>: (v − μ)²</li>
+      <li>Calculate <strong>variance</strong>: average of all squared deviations → Σ(v−μ)² / n</li>
+      <li>Take the <strong>square root</strong> of variance to get σ</li>
+      <li>Apply the formula: subtract mean, divide by σ</li>
+    </ol>
+  </div>
+
+  <div class="concept-card accent-orange">
+    <h2>Worked Solution — Data: 200, 300, 400, 600, 1000</h2>
+    <div class="worked-solution">
+      <div class="ws-header">STEP 1 — MEAN (μ)</div>
+      <div class="ws-body">
+        <div class="ws-row">
+          <span class="ws-label">Sum =</span>
+          <span class="ws-val">200 + 300 + 400 + 600 + 1000 = <span class="highlight">2500</span></span>
+        </div>
+        <div class="ws-row">
+          <span class="ws-label">n =</span>
+          <span class="ws-val"><span class="highlight">5</span></span>
+        </div>
+        <div class="ws-row">
+          <span class="ws-label">μ =</span>
+          <span class="ws-val">2500 / 5 = <span class="result">500</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="worked-solution" style="margin-top:14px">
+      <div class="ws-header">STEP 2 — STANDARD DEVIATION (σ)</div>
+      <div class="ws-body">
+        <table style="margin:0">
+          <thead><tr><th>v</th><th>v − μ</th><th>(v − μ)²</th></tr></thead>
+          <tbody>
+            <tr><td>200</td><td>200 − 500 = −300</td><td>90,000</td></tr>
+            <tr><td>300</td><td>300 − 500 = −200</td><td>40,000</td></tr>
+            <tr><td>400</td><td>400 − 500 = −100</td><td>10,000</td></tr>
+            <tr><td>600</td><td>600 − 500 = 100</td><td>10,000</td></tr>
+            <tr><td>1000</td><td>1000 − 500 = 500</td><td>250,000</td></tr>
+          </tbody>
+        </table>
+        <div class="ws-row" style="margin-top:12px">
+          <span class="ws-label">Σ(v−μ)² =</span>
+          <span class="ws-val">90,000 + 40,000 + 10,000 + 10,000 + 250,000 = <span class="highlight">400,000</span></span>
+        </div>
+        <div class="ws-row">
+          <span class="ws-label">Variance =</span>
+          <span class="ws-val">400,000 / 5 = <span class="highlight">80,000</span></span>
+        </div>
+        <div class="ws-row">
+          <span class="ws-label">σ =</span>
+          <span class="ws-val">√80,000 ≈ <span class="result">282.84</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="worked-solution" style="margin-top:14px">
+      <div class="ws-header">STEP 3 — APPLY Z-SCORE</div>
+      <div class="ws-body">
+        <table style="margin:0">
+          <thead><tr><th>v</th><th>(v − 500) / 282.84</th><th>v' (z-score)</th></tr></thead>
+          <tbody>
+            <tr><td>200</td><td>−300 / 282.84</td><td class="result-cell">−1.061</td></tr>
+            <tr><td>300</td><td>−200 / 282.84</td><td class="result-cell">−0.707</td></tr>
+            <tr><td>400</td><td>−100 / 282.84</td><td class="result-cell">−0.354</td></tr>
+            <tr><td>600</td><td>100 / 282.84</td><td class="result-cell">+0.354</td></tr>
+            <tr><td>1000</td><td>500 / 282.84</td><td class="result-cell">+1.768</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="callout"><strong>✓ Sanity check:</strong> Z-scores should average to ≈ 0. Add them: −1.061 − 0.707 − 0.354 + 0.354 + 1.768 = 0. ✓</div>
+  </div>
+</div>
+
+<!-- DECIMAL SCALING -->
+<div id="decimal" class="section">
+  <div class="section-title">Normalization by Decimal Scaling</div>
+  <p class="section-sub">Moves the decimal point by dividing by a power of 10 (10^j) large enough to make all values fall in [−1, 1].</p>
+
+  <div class="concept-card accent-green">
+    <h2>The Formula <span class="tag tag-green">Q1c</span></h2>
+    <div class="formula-box">
+      <div class="label">Formula</div>
+      v' = v / 10^j
+      <br><br>
+      where  j = smallest integer such that  max(|v'|) &lt; 1
+    </div>
+
+    <ol class="steps-list">
+      <li>Find the <strong>largest absolute value</strong> in the dataset</li>
+      <li>Find <strong>j</strong>: the number of digits in that largest value (i.e., how many times you divide by 10)</li>
+      <li>Divide <strong>every</strong> value by 10<sup>j</sup></li>
+    </ol>
+
+    <div class="callout warn">
+      <strong>Key rule:</strong> j must be large enough so that <em>all</em> normalized values have absolute value &lt; 1. The max value in our data is 1000, which has 4 digits, so j = 4, giving 10⁴ = 10,000.
+    </div>
+  </div>
+
+  <div class="concept-card accent-green">
+    <h2>Worked Solution — Data: 200, 300, 400, 600, 1000</h2>
+    <div class="worked-solution">
+      <div class="ws-header">FINDING j</div>
+      <div class="ws-body">
+        <div class="ws-row">
+          <span class="ws-label">max|v| =</span>
+          <span class="ws-val"><span class="highlight">1000</span></span>
+        </div>
+        <div class="ws-row">
+          <span class="ws-label">Try j = 3:</span>
+          <span class="ws-val">10³ = 1000 → 1000/1000 = <span style="color:var(--wrong)">1.0</span> ✗ (not &lt; 1)</span>
+        </div>
+        <div class="ws-row">
+          <span class="ws-label">Try j = 4:</span>
+          <span class="ws-val">10⁴ = 10,000 → 1000/10,000 = <span class="result">0.1</span> ✓ (&lt; 1)</span>
+        </div>
+        <div class="ws-row">
+          <span class="ws-label">j =</span>
+          <span class="ws-val"><span class="result">4</span></span>
+        </div>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th>v (original)</th><th>v / 10⁴ (÷ 10,000)</th><th>v' (normalized)</th></tr></thead>
+      <tbody>
+        <tr><td>200</td><td>200 / 10,000</td><td class="result-cell">0.02</td></tr>
+        <tr><td>300</td><td>300 / 10,000</td><td class="result-cell">0.03</td></tr>
+        <tr><td>400</td><td>400 / 10,000</td><td class="result-cell">0.04</td></tr>
+        <tr><td>600</td><td>600 / 10,000</td><td class="result-cell">0.06</td></tr>
+        <tr><td>1000</td><td>1,000 / 10,000</td><td class="result-cell">0.10</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><strong>✓ Sanity check:</strong> All values are between 0 and 1 (the max is 0.10 which is &lt; 1). ✓</div>
+  </div>
+</div>
+
+<!-- BINNING -->
+<div id="binning" class="section">
+  <div class="section-title">Smoothing by Binning</div>
+  <p class="section-sub">Binning groups sorted data into equal-depth bins, then replaces values with something smoother — the bin's mean (Q2a) or nearest boundary (Q2b).</p>
+
+  <div class="concept-card accent-orange">
+    <h2>Step 0 — Sort the Data <span class="tag tag-orange">REQUIRED</span></h2>
+    <p>Always sort before binning. The 24 age values sorted:</p>
+    <div class="data-chips">
+      <div class="chip">13</div><div class="chip">15</div><div class="chip">16</div><div class="chip">16</div>
+      <div class="chip">19</div><div class="chip">20</div><div class="chip">21</div><div class="chip">21</div>
+      <div class="chip">22</div><div class="chip">22</div><div class="chip">25</div><div class="chip">25</div>
+      <div class="chip">30</div><div class="chip">33</div><div class="chip">33</div><div class="chip">33</div>
+      <div class="chip">35</div><div class="chip">36</div><div class="chip">40</div><div class="chip">45</div>
+      <div class="chip">46</div><div class="chip">53</div><div class="chip">70</div><div class="chip">75</div>
+    </div>
+    <div class="callout warn"><strong>Bin depth = 4</strong> → each bin holds exactly 4 values. 24 values ÷ 4 = <strong>6 bins</strong>.</div>
+  </div>
+
+  <div class="concept-card accent-orange">
+    <h2>The 6 Bins</h2>
+    <div class="bin-visual">
+      <div class="bin-box"><div class="bin-title">BIN 1</div><div class="bin-items"><span class="bin-item">13</span><span class="bin-item">15</span><span class="bin-item">16</span><span class="bin-item">16</span></div></div>
+      <div class="bin-box"><div class="bin-title">BIN 2</div><div class="bin-items"><span class="bin-item">19</span><span class="bin-item">20</span><span class="bin-item">21</span><span class="bin-item">21</span></div></div>
+      <div class="bin-box"><div class="bin-title">BIN 3</div><div class="bin-items"><span class="bin-item">22</span><span class="bin-item">22</span><span class="bin-item">25</span><span class="bin-item">25</span></div></div>
+      <div class="bin-box"><div class="bin-title">BIN 4</div><div class="bin-items"><span class="bin-item">30</span><span class="bin-item">33</span><span class="bin-item">33</span><span class="bin-item">33</span></div></div>
+      <div class="bin-box"><div class="bin-title">BIN 5</div><div class="bin-items"><span class="bin-item">35</span><span class="bin-item">36</span><span class="bin-item">40</span><span class="bin-item">45</span></div></div>
+      <div class="bin-box"><div class="bin-title">BIN 6</div><div class="bin-items"><span class="bin-item">46</span><span class="bin-item">53</span><span class="bin-item">70</span><span class="bin-item">75</span></div></div>
+    </div>
+  </div>
+
+  <div class="concept-card accent-blue">
+    <h2>Q2a — Smoothing by Bin Means</h2>
+    <p>Replace every value in a bin with the <strong>mean</strong> of that bin.</p>
+    <div class="formula-box">mean = (v₁ + v₂ + v₃ + v₄) / 4</div>
+
+    <table>
+      <thead><tr><th>Bin</th><th>Values</th><th>Sum</th><th>Mean (rounded)</th><th>Smoothed Output</th></tr></thead>
+      <tbody>
+        <tr><td>Bin 1</td><td>13, 15, 16, 16</td><td>60</td><td>60/4 = <strong>15</strong></td><td class="result-cell">15, 15, 15, 15</td></tr>
+        <tr><td>Bin 2</td><td>19, 20, 21, 21</td><td>81</td><td>81/4 = 20.25 → <strong>20</strong></td><td class="result-cell">20, 20, 20, 20</td></tr>
+        <tr><td>Bin 3</td><td>22, 22, 25, 25</td><td>94</td><td>94/4 = 23.5 → <strong>24</strong></td><td class="result-cell">24, 24, 24, 24</td></tr>
+        <tr><td>Bin 4</td><td>30, 33, 33, 33</td><td>129</td><td>129/4 = 32.25 → <strong>32</strong></td><td class="result-cell">32, 32, 32, 32</td></tr>
+        <tr><td>Bin 5</td><td>35, 36, 40, 45</td><td>156</td><td>156/4 = 39 → <strong>39</strong></td><td class="result-cell">39, 39, 39, 39</td></tr>
+        <tr><td>Bin 6</td><td>46, 53, 70, 75</td><td>244</td><td>244/4 = 61 → <strong>61</strong></td><td class="result-cell">61, 61, 61, 61</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="concept-card accent-green">
+    <h2>Q2b — Smoothing by Bin Boundaries</h2>
+    <p>Replace each value with the <strong>closest boundary</strong> (min or max) of its bin.</p>
+    <div class="callout">
+      <strong>Rule:</strong> For each value v in a bin:<br>
+      • If v is closer to the <strong>bin min</strong> → replace with bin min<br>
+      • If v is closer to the <strong>bin max</strong> → replace with bin max<br>
+      • If exactly equidistant → use either (convention: use min, or note both are acceptable)
+    </div>
+
+    <table>
+      <thead><tr><th>Bin</th><th>Min</th><th>Max</th><th>Value</th><th>Distance to min</th><th>Distance to max</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td rowspan="4">Bin 1</td><td rowspan="4">13</td><td rowspan="4">16</td><td>13</td><td>0</td><td>3</td><td class="result-cell">13</td></tr>
+        <tr><td>15</td><td>2</td><td>1</td><td class="result-cell">16</td></tr>
+        <tr><td>16</td><td>3</td><td>0</td><td class="result-cell">16</td></tr>
+        <tr><td>16</td><td>3</td><td>0</td><td class="result-cell">16</td></tr>
+
+        <tr><td rowspan="4">Bin 2</td><td rowspan="4">19</td><td rowspan="4">21</td><td>19</td><td>0</td><td>2</td><td class="result-cell">19</td></tr>
+        <tr><td>20</td><td>1</td><td>1</td><td class="result-cell">19 or 21</td></tr>
+        <tr><td>21</td><td>2</td><td>0</td><td class="result-cell">21</td></tr>
+        <tr><td>21</td><td>2</td><td>0</td><td class="result-cell">21</td></tr>
+
+        <tr><td rowspan="4">Bin 3</td><td rowspan="4">22</td><td rowspan="4">25</td><td>22</td><td>0</td><td>3</td><td class="result-cell">22</td></tr>
+        <tr><td>22</td><td>0</td><td>3</td><td class="result-cell">22</td></tr>
+        <tr><td>25</td><td>3</td><td>0</td><td class="result-cell">25</td></tr>
+        <tr><td>25</td><td>3</td><td>0</td><td class="result-cell">25</td></tr>
+
+        <tr><td rowspan="4">Bin 4</td><td rowspan="4">30</td><td rowspan="4">33</td><td>30</td><td>0</td><td>3</td><td class="result-cell">30</td></tr>
+        <tr><td>33</td><td>3</td><td>0</td><td class="result-cell">33</td></tr>
+        <tr><td>33</td><td>3</td><td>0</td><td class="result-cell">33</td></tr>
+        <tr><td>33</td><td>3</td><td>0</td><td class="result-cell">33</td></tr>
+
+        <tr><td rowspan="4">Bin 5</td><td rowspan="4">35</td><td rowspan="4">45</td><td>35</td><td>0</td><td>10</td><td class="result-cell">35</td></tr>
+        <tr><td>36</td><td>1</td><td>9</td><td class="result-cell">35</td></tr>
+        <tr><td>40</td><td>5</td><td>5</td><td class="result-cell">35 or 45</td></tr>
+        <tr><td>45</td><td>10</td><td>0</td><td class="result-cell">45</td></tr>
+
+        <tr><td rowspan="4">Bin 6</td><td rowspan="4">46</td><td rowspan="4">75</td><td>46</td><td>0</td><td>29</td><td class="result-cell">46</td></tr>
+        <tr><td>53</td><td>7</td><td>22</td><td class="result-cell">46</td></tr>
+        <tr><td>70</td><td>24</td><td>5</td><td class="result-cell">75</td></tr>
+        <tr><td>75</td><td>29</td><td>0</td><td class="result-cell">75</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn"><strong>Note:</strong> Bin 2 value=20 and Bin 5 value=40 are equidistant from both boundaries. Either answer is acceptable — just note it in your homework.</div>
+  </div>
+</div>
+
+<!-- PRACTICE -->
+<div id="practice" class="section">
+  <div class="section-title">🎯 Practice Problems</div>
+  <p class="section-sub">Test your understanding before submitting your homework. Try to answer each question without peeking!</p>
+
+  <!-- Q1 -->
+  <div class="quiz-card">
+    <h3>Q1 — Min-Max Normalization</h3>
+    <p class="q-sub">Data: <strong>200, 300, 400, 600, 1000</strong>. What is the min-max normalized value of <strong>600</strong>? (min=0, max=1)</p>
+    <div class="input-row">
+      <label>v' for 600 =</label>
+      <input type="number" id="p1" step="0.001" placeholder="e.g. 0.500">
+      <button class="btn" onclick="check('p1', 0.5, 0.001, 'Correct! (600 − 200) / (1000 − 200) = 400 / 800 = 0.500', 'Not quite. Use the formula: (v − min) / (max − min) = (600 − 200) / (1000 − 200)')">Check</button>
+    </div>
+    <div id="p1-fb" class="feedback"></div>
+  </div>
+
+  <!-- Q2 -->
+  <div class="quiz-card">
+    <h3>Q2 — Z-Score Normalization</h3>
+    <p class="q-sub">Data: <strong>200, 300, 400, 600, 1000</strong>. What is the <strong>mean (μ)</strong>?</p>
+    <div class="input-row">
+      <label>μ =</label>
+      <input type="number" id="p2" placeholder="e.g. 500">
+      <button class="btn" onclick="check('p2', 500, 0.1, 'Correct! (200+300+400+600+1000) / 5 = 2500 / 5 = 500', 'Try summing all values then dividing by 5.')">Check</button>
+    </div>
+    <div id="p2-fb" class="feedback"></div>
+  </div>
+
+  <!-- Q3 -->
+  <div class="quiz-card">
+    <h3>Q3 — Standard Deviation</h3>
+    <p class="q-sub">Given μ = 500, what is the <strong>standard deviation (σ)</strong>? Round to 2 decimal places.</p>
+    <div class="input-row">
+      <label>σ =</label>
+      <input type="number" id="p3" step="0.01" placeholder="e.g. 282.84">
+      <button class="btn" onclick="check('p3', 282.84, 0.1, 'Correct! Variance = 400,000/5 = 80,000 → σ = √80,000 ≈ 282.84', 'Compute (v−500)² for each v, sum them (=400,000), divide by 5 (=80,000), then take √.')">Check</button>
+    </div>
+    <div id="p3-fb" class="feedback"></div>
+  </div>
+
+  <!-- Q4 -->
+  <div class="quiz-card">
+    <h3>Q4 — Decimal Scaling</h3>
+    <p class="q-sub">Data: <strong>200, 300, 400, 600, 1000</strong>. What value of <strong>j</strong> (power of 10) should you use?</p>
+    <div class="input-row">
+      <label>j =</label>
+      <input type="number" id="p4" placeholder="e.g. 3">
+      <button class="btn" onclick="check('p4', 4, 0.01, 'Correct! Max value is 1000. j=3 gives 1000/1000=1 (not <1), so j=4 giving 1000/10000=0.1 ✓', 'Hint: Try j=3 first. Does 1000/10³ give a value less than 1? Then try j=4.')">Check</button>
+    </div>
+    <div id="p4-fb" class="feedback"></div>
+  </div>
+
+  <!-- Q5 -->
+  <div class="quiz-card">
+    <h3>Q5 — Binning</h3>
+    <p class="q-sub">Age data sorted, bin depth=4. What is the <strong>bin mean</strong> for Bin 5 (values: 35, 36, 40, 45)?</p>
+    <div class="input-row">
+      <label>Bin 5 mean =</label>
+      <input type="number" id="p5" placeholder="e.g. 39">
+      <button class="btn" onclick="check('p5', 39, 0.01, 'Correct! (35+36+40+45)/4 = 156/4 = 39', 'Add the four values (35+36+40+45=156), then divide by 4.')">Check</button>
+    </div>
+    <div id="p5-fb" class="feedback"></div>
+  </div>
+
+  <!-- Q6 -->
+  <div class="quiz-card">
+    <h3>Q6 — Bin Boundaries</h3>
+    <p class="q-sub">Bin 6 has values: 46, 53, 70, 75. Using bin boundaries, what does <strong>53</strong> get replaced with?</p>
+    <div class="input-row">
+      <label>53 → </label>
+      <input type="number" id="p6" placeholder="46 or 75">
+      <button class="btn" onclick="check('p6', 46, 0.01, 'Correct! Distance to min (46) = 53−46 = 7. Distance to max (75) = 75−53 = 22. Closer to 46.', 'Compute |53 − 46| vs |53 − 75| to find the closer boundary.')">Check</button>
+    </div>
+    <div id="p6-fb" class="feedback"></div>
+  </div>
+
+</div>
+</div>
+
+<script>
+function switchTab(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function check(inputId, correctVal, tolerance, successMsg, failMsg) {
+  const val = parseFloat(document.getElementById(inputId).value);
+  const fb = document.getElementById(inputId + '-fb');
+  fb.className = 'feedback';
+  if (isNaN(val)) {
+    fb.className = 'feedback wrong';
+    fb.textContent = 'Please enter a number.';
+    return;
+  }
+  if (Math.abs(val - correctVal) <= tolerance) {
+    fb.className = 'feedback correct';
+    fb.innerHTML = '✓ ' + successMsg;
+  } else {
+    fb.className = 'feedback wrong';
+    fb.innerHTML = '✗ ' + failMsg;
+  }
+}
+</script>
+</body>
+</html>
